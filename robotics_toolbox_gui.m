@@ -328,7 +328,7 @@ function robotics_toolbox_gui()
     
             txt = {};
             txt{end+1,1} = '7. IMPEDANCE CONTROL';
-            txt{end+1,1} = ' ';
+            txt{end+1,1} = ' '; 
             txt{end+1,1} = 'Controller:';
             txt{end+1,1} = 'Inverse dynamics impedance control';
             txt{end+1,1} = ' ';
