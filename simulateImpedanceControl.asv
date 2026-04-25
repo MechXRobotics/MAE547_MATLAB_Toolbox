@@ -1,0 +1,105 @@
+function results = simulateImpedanceControl(robot, q0, qdot0, xWall, Ke, De)
+% SIMULATEIMPEDANCECONTROL
+% Indirect force control through impedance control:
+% inverse dynamics control under environment contact.
+
+    dt = 0.001;
+    tf = 3.0;
+    t = 0:dt:tf;
+    N = numel(t);
+
+    q = q0(:);
+    qdot = qdot0(:);
+
+    % Initial end-effector position
+    [T0_all, ~] = fkineDH(robot, q);
+    p0 = T0_all(1:3,4,end);
+
+    % Desired Cartesian position moves into wall
+    pd_final = p0 + [0.25; 0; 0];
+
+    % Impedance gains
+    Md = diag([1 1 1]);
+    Dd = diag([80 80 80]);
+    Kd_cart = diag([500 500 500]);
+
+    % Environment parameters
+    % xWall = 0.75;
+    % Ke = 1500;
+    % De = 25;
+
+    pHist = zeros(3,N);
+    pdHist = zeros(3,N);
+    fHist = zeros(3,N);
+
+    for k = 1:N
+        time = t(k);
+
+        [T_all, ~] = fkineDH(robot, q);
+        T_ee = T_all(:,:,end);
+        p = T_ee(1:3,4);
+
+        J = geometricJacobian(robot, q);
+        Jp = J(1:3,:);
+        pdot = Jp * qdot;
+
+        % Smooth desired trajectory
+        s = min(time/tf, 1);
+        pd = p0 + s*(pd_final - p0);
+        pd_dot = (pd_final - p0)/tf;
+        pd_ddot = zeros(3,1);
+
+        % Environment contact force
+        penetration = p(1) - xWall;
+        penetrationRate = pdot(1);
+        
+        if penetration > 0
+            Fn = Ke*penetration + De*penetrationRate;
+        
+            % One-sided wall: it can push, but it cannot pull.
+            Fn = max(Fn, 0);
+        
+            Fenv = [-Fn; 0; 0];
+        else
+            Fenv = [0; 0; 0];
+        end
+
+        % Impedance law in Cartesian space
+        xdd_cmd = pd_ddot + Md \ ( ...
+            Dd*(pd_dot - pdot) + ...
+            Kd_cart*(pd - p) - ...
+            Fenv );
+
+        % Convert Cartesian acceleration command to joint acceleration command
+        qdd_cmd = pinv(Jp) * xdd_cmd;
+
+        B = massMatrix(robot, q);
+        C = coriolisMatrix(robot, q, qdot);
+        gq = gravityVector(robot, q);
+
+        % Inverse dynamics controller
+        tauControl = B*qdd_cmd + C*qdot + gq;
+
+        % Environment torque
+        tauEnv = Jp.' * Fenv;
+
+        % Actual forward dynamics under controller + environment
+        % qdd = B \ (tauControl + tauEnv - C*qdot - gq);
+
+        % Integrate
+        qdot_old = qdot;
+        qdot = qdot + dt*qdd;
+        q = q + dt*qdot_old;
+
+        pHist(:,k) = p;
+        pdHist(:,k) = pd;
+        fHist(:,k) = Fenv;
+    end
+
+    results.t = t;
+    results.p = pHist;
+    results.pd = pdHist;
+    results.Fenv = fHist;
+
+    plotForceControlResults(results, 'Impedance Control: Inverse Dynamics');
+end

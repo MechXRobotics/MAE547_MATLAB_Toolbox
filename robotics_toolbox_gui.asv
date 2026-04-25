@@ -250,15 +250,13 @@ function robotics_toolbox_gui()
             pd = parse3(pdField, 'pd');
     
             results = simulateComplianceControl(robot, q, qdot, xWall, Ke, De, pd);
+            eq = results.equilibriumCheck;
     
             txt = {};
             txt{end+1,1} = '6. COMPLIANCE CONTROL';
             txt{end+1,1} = ' ';
             txt{end+1,1} = 'Controller:';
-            txt{end+1,1} = 'PD control with gravity compensation';
-            txt{end+1,1} = ' ';
-            txt{end+1,1} = 'Control type:';
-            txt{end+1,1} = 'Indirect force control through compliance control';
+            txt{end+1,1} = 'Active Cartesian compliance control';
             txt{end+1,1} = ' ';
             txt{end+1,1} = 'Environment:';
             txt{end+1,1} = 'One-sided virtual wall spring-damper';
@@ -270,7 +268,7 @@ function robotics_toolbox_gui()
             txt{end+1,1} = sprintf('De = %.2f N*s/m', results.De);
     
             txt{end+1,1} = ' ';
-            txt{end+1,1} = 'Desired end-effector position:';
+            txt{end+1,1} = 'Desired position pd:';
             txt = [txt; vectorToText(results.pd(:,end))];
     
             txt{end+1,1} = ' ';
@@ -278,16 +276,44 @@ function robotics_toolbox_gui()
             txt = [txt; vectorToText(results.finalPosition)];
     
             txt{end+1,1} = ' ';
-            txt{end+1,1} = 'Final end-effector contact force:';
+            txt{end+1,1} = 'Final contact force Fenv:';
             txt = [txt; vectorToText(results.finalForce)];
     
             txt{end+1,1} = ' ';
             if results.Ke == 0 && results.De == 0
                 txt{end+1,1} = 'Final penetration:';
                 txt{end+1,1} = 'N/A, environment disabled';
+                txt{end+1,1} = sprintf('Final x - xWall = %.6f m', results.finalPosition(1) - results.xWall);
             else
                 txt{end+1,1} = 'Final penetration:';
                 txt{end+1,1} = sprintf('%.6f m', results.finalPenetration);
+            end
+    
+            txt{end+1,1} = ' ';
+            txt{end+1,1} = 'Textbook equilibrium check:';
+            txt{end+1,1} = ['Status: ' char(eq.reason)];
+    
+            if eq.valid
+                txt{end+1,1} = ' ';
+                txt{end+1,1} = 'Active stiffness:';
+                txt{end+1,1} = sprintf('Kp_x = %.2f N/m', eq.Kp_x);
+    
+                txt{end+1,1} = ' ';
+                txt{end+1,1} = 'Expected vs simulated final x:';
+                txt{end+1,1} = sprintf('Expected final x = %.6f m', eq.expectedX);
+                txt{end+1,1} = sprintf('Simulated final x = %.6f m', eq.simulatedX);
+                txt{end+1,1} = sprintf('x error = %.6f m', eq.xError);
+    
+                txt{end+1,1} = ' ';
+                txt{end+1,1} = 'Expected vs simulated final Fx:';
+                txt{end+1,1} = sprintf('Expected final Fx = %.6f N', eq.expectedFx);
+                txt{end+1,1} = sprintf('Simulated final Fx = %.6f N', eq.simulatedFx);
+                txt{end+1,1} = sprintf('Fx error = %.6f N', eq.fxError);
+    
+                txt{end+1,1} = ' ';
+                txt{end+1,1} = 'Expected vs simulated penetration:';
+                txt{end+1,1} = sprintf('Expected penetration = %.6f m', eq.expectedPenetration);
+                txt{end+1,1} = sprintf('Simulated penetration = %.6f m', eq.simulatedPenetration);
             end
     
             txt{end+1,1} = ' ';
