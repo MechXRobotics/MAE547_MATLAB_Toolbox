@@ -54,6 +54,7 @@ function robotics_toolbox_gui()
         24, ...   % qdot
         24, ...   % qdd
         24, ...   % tau
+        24, ...   % simulation time
         24, ...   % pd
         24, ...   % phi_d
         28, ...   % ve_d
@@ -123,6 +124,10 @@ function robotics_toolbox_gui()
 
     uilabel(leftGrid, 'Text', 'tau:');
     tauField = uieditfield(leftGrid, 'text', 'Value', '[1 0.5 0.2]');
+    
+    uilabel(leftGrid, 'Text', 'Simulation Time (s):');
+    simTimeField = uieditfield(leftGrid, 'numeric', 'Value', 5, 'Limits', [0.01 Inf]);
+    simTimeField.HorizontalAlignment = 'left';
 
     uilabel(leftGrid, 'Text', 'Desired pd [x y z]:');
     pdField = uieditfield(leftGrid, 'text', 'Value', '[0.7 0.2 0]');
@@ -198,6 +203,7 @@ function robotics_toolbox_gui()
     app.qdotField = qdotField;
     app.qddField = qddField;
     app.tauField = tauField;
+    app.simTimeField = simTimeField;
     app.pdField = pdField;
     app.phiField = phiField;
     app.veField = veField;
@@ -362,6 +368,18 @@ function robotics_toolbox_gui()
         end
     end
 
+    %function to turn off button states for longer processes
+    function setButtonsEnabled(state)
+        buildBtn.Enable = state;
+        fkBtn.Enable = state;
+        animBtn.Enable = state;
+        ikBtn.Enable = state;
+        diffBtn.Enable = state;
+        invVelBtn.Enable = state;
+        dynBtn.Enable = state;
+        exampleBtn.Enable = state;
+    end
+
     function onLoadExample()
         selection = uiconfirm(fig, ...
             'Loading the example will overwrite the current robot inputs. Continue?', ...
@@ -399,6 +417,7 @@ function robotics_toolbox_gui()
         massesField.Value = mat2str(ones(1,nNew), 4);
         comField.Value = defaultCOMText(nNew);
         inertiaField.Value = defaultInertiaText(nNew);
+        simTimeField.Value = 5; 
         pdField.Value = '[0 0 0]';
         phiField.Value = '[0 0 0]';
         veField.Value = '[0 0 0 0 0 0]';
@@ -432,6 +451,7 @@ function robotics_toolbox_gui()
         qdotField.Value = '[0.1 0.2 -0.1]';
         qddField.Value = '[0.2 -0.1 0.05]';
         tauField.Value = '[1 0.5 0.2]';
+        simTimeField.Value = 5;
         pdField.Value = '[0.7 0.2 0]';
         phiField.Value = '[0 0 0]';
         veField.Value = '[0.05 0 0 0 0 0]';
@@ -508,6 +528,9 @@ function robotics_toolbox_gui()
 
     function onAnimate()
         try
+            %disable buttons during animation
+            setButtonsEnabled('off');
+
             robot = ensureRobot();
             qf = parseVector(qField, robot.n, 'q');
             q0 = robot.q_home(:);
@@ -540,6 +563,9 @@ function robotics_toolbox_gui()
         catch ME
             outArea.Value = {['Error: ' ME.message]};
         end
+
+        %enable buttons again
+        setButtonsEnabled('on');
     end
 
     function onInverseKinematics()
@@ -594,6 +620,8 @@ function robotics_toolbox_gui()
             txt = [txt; vectorToText(q_sol)];
             txt{end+1,1} = ' ';
             txt{end+1,1} = sprintf('Final error norm = %.6e', history.errNorm(end));
+            txt{end+1,1} = ' ';
+            txt{end+1,1} = 'q field and robot visualization were updated to the IK solution.';      %added to address change after completion
             outArea.Value = txt;
         catch ME
             outArea.Value = {['Error: ' ME.message]};
@@ -662,6 +690,8 @@ function robotics_toolbox_gui()
             txt{end+1,1} = 'qdot command:';
             txt = [txt; vectorToText(qdot_cmd)];
             txt{end+1,1} = ' ';
+            txt{end+1,1} = 'qdot field was updated to the IK velocity solution.';     %Added to address updated value
+            txt{end+1,1} = ' ';
             txt{end+1,1} = sprintf('rank(J) = %d', info.rank);
             txt{end+1,1} = sprintf('cond approx = %.6g', info.condApprox);
             txt{end+1,1} = ' ';
@@ -675,6 +705,13 @@ function robotics_toolbox_gui()
 
     function onDynamics()
     try
+
+        %disable buttons while running
+        setButtonsEnabled('off');
+
+        outArea.Value = {'Running dynamics. Please wait...'};
+        drawnow;
+
         robot = ensureRobot();
         q = parseVector(qField, robot.n, 'q');
         qdot = parseVector(qdotField, robot.n, 'qdot');
@@ -748,11 +785,23 @@ function robotics_toolbox_gui()
         txt{end+1,1} = 'qdd = B(q)^(-1) [tau - C(q,qdot)qdot - g(q)]';
         txt = [txt; vectorToText(qdd_fd)];
 
+        % Dynamics simulation over time
+
+        Tsim = simTimeField.Value;
+        t = linspace(0, Tsim, 501);
+        dt = t(2) - t(1);
+
+        dynamicsPlotting(robot, q, qdot, tauApplied, t, dt);
+
         outArea.Value = txt;
 
     catch ME
         outArea.Value = {['Error: ' ME.message]};
     end
+
+    %enable buttons after finished
+    setButtonsEnabled('on');
+
     end
 end
 
@@ -792,6 +841,13 @@ end
 
 function val = defaultCOMText(n)
     val = cell(n,1);
+
+    %case of 1 joint
+    if n == 1
+        val{1} = '[0.1 0 0]';
+        return;
+    end
+
     for i = 1:n
         if i == 1
             val{i} = '[0.1 0 0;';
@@ -805,6 +861,13 @@ end
 
 function val = defaultInertiaText(n)
     val = cell(n,1);
+
+    %case of one joint
+     if n == 1
+        val{1} = '[0.01 0.01 0.01 0 0 0]';
+        return;
+     end
+
     for i = 1:n
         if i == 1
             val{i} = '[0.01 0.01 0.01 0 0 0;';
