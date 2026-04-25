@@ -35,7 +35,7 @@ function robotics_toolbox_gui()
     % ---------------- Left panel ----------------
     leftPanel = uipanel(gl, 'Title', 'Robot Definition and Inputs');
 
-    leftGrid = uigridlayout(leftPanel, [30 2]);
+    leftGrid = uigridlayout(leftPanel, [31 2]);
     leftGrid.Scrollable = 'on';
 
     leftGrid.ColumnWidth = {215, '1x'};
@@ -125,6 +125,10 @@ function robotics_toolbox_gui()
     uilabel(leftGrid, 'Text', 'tau:');
     tauField = uieditfield(leftGrid, 'text', 'Value', '[1 0.5 0.2]');
     
+    uilabel(leftGrid, 'Text', 'Simulation Time (s):');
+    simTimeField = uieditfield(leftGrid, 'numeric', 'Value', 5, 'Limits', [0.01 Inf]);
+    simTimeField.HorizontalAlignment = 'left';
+
     uilabel(leftGrid, 'Text', 'Simulation Time (s):');
     simTimeField = uieditfield(leftGrid, 'numeric', 'Value', 5, 'Limits', [0.01 Inf]);
     simTimeField.HorizontalAlignment = 'left';
@@ -255,7 +259,8 @@ function robotics_toolbox_gui()
             De = deField.Value;
             pd = parse3(pdField, 'pd');
     
-            results = simulateComplianceControl(robot, q, qdot, xWall, Ke, De, pd);
+            Tsim = simTimeField.Value;
+            results = simulateComplianceControl(robot, q, qdot, xWall, Ke, De, pd, Tsim);
     
             txt = {};
             txt{end+1,1} = '6. COMPLIANCE CONTROL';
@@ -317,8 +322,9 @@ function robotics_toolbox_gui()
             xWall = xWallField.Value;
             Ke = keField.Value;
             De = deField.Value;
-    
-            results = simulateImpedanceControl(robot, q, qdot, xWall, Ke, De);
+
+            Tsim = simTimeField.Value;
+            results = simulateImpedanceControl(robot, q, qdot, xWall, Ke, De, Tsim);
     
             txt = {};
             txt{end+1,1} = '7. IMPEDANCE CONTROL';
@@ -451,7 +457,11 @@ function robotics_toolbox_gui()
         qdotField.Value = '[0.1 0.2 -0.1]';
         qddField.Value = '[0.2 -0.1 0.05]';
         tauField.Value = '[1 0.5 0.2]';
+<<<<<<< HEAD
         simTimeField.Value = 5;
+=======
+        simTimeField.Value = 5; 
+>>>>>>> 1ae08dc (adding all updates)
         pdField.Value = '[0.7 0.2 0]';
         phiField.Value = '[0 0 0]';
         veField.Value = '[0.05 0 0 0 0 0]';
@@ -703,7 +713,7 @@ function robotics_toolbox_gui()
         end
     end
 
-    function onDynamics()
+function onDynamics()
     try
 
         %disable buttons while running

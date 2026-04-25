@@ -1,4 +1,4 @@
-function results = simulateComplianceControl(robot, q0, qdot0, xWall, Ke, De, pd)
+function results = simulateComplianceControl(robot, q0, qdot0, xWall, Ke, De, pd, Tsim)
 % SIMULATECOMPLIANCECONTROL
 %
 % Chapter 9 active compliance control with a one-sided virtual wall.
@@ -14,13 +14,17 @@ function results = simulateComplianceControl(robot, q0, qdot0, xWall, Ke, De, pd
 % results.equilibriumCheck.xError
 % results.equilibriumCheck.fxError
 
-    dt = 0.001;
-    tf = 3.0;
-    t = 0:dt:tf;
+    if nargin < 8 || isempty(Tsim)
+        Tsim = 3.0;
+    end
+
+    t = linspace(0, Tsim, 501);
+    dt = t(2) - t(1);
     N = numel(t);
     n = robot.n;
     q = q0(:);
     qdot = qdot0(:);
+    
 
     % Defaults
     [T0_all, ~] = fkineDH(robot, q0);

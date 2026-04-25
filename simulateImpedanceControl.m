@@ -1,12 +1,17 @@
-function results = simulateImpedanceControl(robot, q0, qdot0, xWall, Ke, De)
+function results = simulateImpedanceControl(robot, q0, qdot0, xWall, Ke, De, Tsim)
 % SIMULATEIMPEDANCECONTROL
 % Chapter 9 impedance control with force measurement.
 % Inverse dynamics + force compensation + desired Cartesian impedance.
 
-    dt = 0.001;
-    tf = 3.0;
-    t  = 0:dt:tf;
-    N  = numel(t);
+    if nargin < 7 || isempty(Tsim)
+        Tsim = 3.0;
+    end
+
+    t = linspace(0, Tsim, 501);
+    dt = t(2) - t(1);
+    tf = Tsim;
+    N = numel(t);
+    
     n  = robot.n;
 
     q = q0(:);
