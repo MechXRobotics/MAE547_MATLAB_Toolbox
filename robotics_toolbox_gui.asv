@@ -54,7 +54,6 @@ function robotics_toolbox_gui()
         24, ...   % qdot
         24, ...   % qdd
         24, ...   % tau
-        24, ...   % simulation time
         24, ...   % pd
         24, ...   % phi_d
         28, ...   % ve_d
@@ -124,10 +123,6 @@ function robotics_toolbox_gui()
 
     uilabel(leftGrid, 'Text', 'tau:');
     tauField = uieditfield(leftGrid, 'text', 'Value', '[1 0.5 0.2]');
-    
-    uilabel(leftGrid, 'Text', 'Simulation Time (s):');
-    simTimeField = uieditfield(leftGrid, 'numeric', 'Value', 5, 'Limits', [0.01 Inf]);
-    simTimeField.HorizontalAlignment = 'left';
 
     uilabel(leftGrid, 'Text', 'Desired pd [x y z]:');
     pdField = uieditfield(leftGrid, 'text', 'Value', '[0.7 0.2 0]');
@@ -203,7 +198,6 @@ function robotics_toolbox_gui()
     app.qdotField = qdotField;
     app.qddField = qddField;
     app.tauField = tauField;
-    app.simTimeField = simTimeField;
     app.pdField = pdField;
     app.phiField = phiField;
     app.veField = veField;
@@ -256,15 +250,13 @@ function robotics_toolbox_gui()
             pd = parse3(pdField, 'pd');
     
             results = simulateComplianceControl(robot, q, qdot, xWall, Ke, De, pd);
+            eq = results.equilibriumCheck;
     
             txt = {};
             txt{end+1,1} = '6. COMPLIANCE CONTROL';
             txt{end+1,1} = ' ';
             txt{end+1,1} = 'Controller:';
-            txt{end+1,1} = 'PD control with gravity compensation';
-            txt{end+1,1} = ' ';
-            txt{end+1,1} = 'Control type:';
-            txt{end+1,1} = 'Indirect force control through compliance control';
+            txt{end+1,1} = 'Active Cartesian compliance control';
             txt{end+1,1} = ' ';
             txt{end+1,1} = 'Environment:';
             txt{end+1,1} = 'One-sided virtual wall spring-damper';
@@ -276,7 +268,7 @@ function robotics_toolbox_gui()
             txt{end+1,1} = sprintf('De = %.2f N*s/m', results.De);
     
             txt{end+1,1} = ' ';
-            txt{end+1,1} = 'Desired end-effector position:';
+            txt{end+1,1} = 'Desired position pd:';
             txt = [txt; vectorToText(results.pd(:,end))];
     
             txt{end+1,1} = ' ';
@@ -284,16 +276,44 @@ function robotics_toolbox_gui()
             txt = [txt; vectorToText(results.finalPosition)];
     
             txt{end+1,1} = ' ';
-            txt{end+1,1} = 'Final end-effector contact force:';
+            txt{end+1,1} = 'Final contact force Fenv:';
             txt = [txt; vectorToText(results.finalForce)];
     
             txt{end+1,1} = ' ';
             if results.Ke == 0 && results.De == 0
                 txt{end+1,1} = 'Final penetration:';
                 txt{end+1,1} = 'N/A, environment disabled';
+                txt{end+1,1} = sprintf('Final x - xWall = %.6f m', results.finalPosition(1) - results.xWall);
             else
                 txt{end+1,1} = 'Final penetration:';
                 txt{end+1,1} = sprintf('%.6f m', results.finalPenetration);
+            end
+    
+            txt{end+1,1} = ' ';
+            txt{end+1,1} = 'Textbook equilibrium check:';
+            txt{end+1,1} = ['Status: ' char(eq.reason)];
+    
+            if eq.valid
+                txt{end+1,1} = ' ';
+                txt{end+1,1} = 'Active stiffness:';
+                txt{end+1,1} = sprintf('Kp_x = %.2f N/m', eq.Kp_x);
+    
+                txt{end+1,1} = ' ';
+                txt{end+1,1} = 'Expected vs simulated final x:';
+                txt{end+1,1} = sprintf('Expected final x = %.6f m', eq.expectedX);
+                txt{end+1,1} = sprintf('Simulated final x = %.6f m', eq.simulatedX);
+                txt{end+1,1} = sprintf('x error = %.6f m', eq.xError);
+    
+                txt{end+1,1} = ' ';
+                txt{end+1,1} = 'Expected vs simulated final Fx:';
+                txt{end+1,1} = sprintf('Expected final Fx = %.6f N', eq.expectedFx);
+                txt{end+1,1} = sprintf('Simulated final Fx = %.6f N', eq.simulatedFx);
+                txt{end+1,1} = sprintf('Fx error = %.6f N', eq.fxError);
+    
+                txt{end+1,1} = ' ';
+                txt{end+1,1} = 'Expected vs simulated penetration:';
+                txt{end+1,1} = sprintf('Expected penetration = %.6f m', eq.expectedPenetration);
+                txt{end+1,1} = sprintf('Simulated penetration = %.6f m', eq.simulatedPenetration);
             end
     
             txt{end+1,1} = ' ';
@@ -368,18 +388,6 @@ function robotics_toolbox_gui()
         end
     end
 
-    %function to turn off button states for longer processes
-    function setButtonsEnabled(state)
-        buildBtn.Enable = state;
-        fkBtn.Enable = state;
-        animBtn.Enable = state;
-        ikBtn.Enable = state;
-        diffBtn.Enable = state;
-        invVelBtn.Enable = state;
-        dynBtn.Enable = state;
-        exampleBtn.Enable = state;
-    end
-
     function onLoadExample()
         selection = uiconfirm(fig, ...
             'Loading the example will overwrite the current robot inputs. Continue?', ...
@@ -417,7 +425,6 @@ function robotics_toolbox_gui()
         massesField.Value = mat2str(ones(1,nNew), 4);
         comField.Value = defaultCOMText(nNew);
         inertiaField.Value = defaultInertiaText(nNew);
-        simTimeField.Value = 5; 
         pdField.Value = '[0 0 0]';
         phiField.Value = '[0 0 0]';
         veField.Value = '[0 0 0 0 0 0]';
@@ -451,7 +458,6 @@ function robotics_toolbox_gui()
         qdotField.Value = '[0.1 0.2 -0.1]';
         qddField.Value = '[0.2 -0.1 0.05]';
         tauField.Value = '[1 0.5 0.2]';
-        simTimeField.Value = 5;
         pdField.Value = '[0.7 0.2 0]';
         phiField.Value = '[0 0 0]';
         veField.Value = '[0.05 0 0 0 0 0]';
@@ -528,9 +534,6 @@ function robotics_toolbox_gui()
 
     function onAnimate()
         try
-            %disable buttons during animation
-            setButtonsEnabled('off');
-
             robot = ensureRobot();
             qf = parseVector(qField, robot.n, 'q');
             q0 = robot.q_home(:);
@@ -563,9 +566,6 @@ function robotics_toolbox_gui()
         catch ME
             outArea.Value = {['Error: ' ME.message]};
         end
-
-        %enable buttons again
-        setButtonsEnabled('on');
     end
 
     function onInverseKinematics()
@@ -620,8 +620,6 @@ function robotics_toolbox_gui()
             txt = [txt; vectorToText(q_sol)];
             txt{end+1,1} = ' ';
             txt{end+1,1} = sprintf('Final error norm = %.6e', history.errNorm(end));
-            txt{end+1,1} = ' ';
-            txt{end+1,1} = 'q field and robot visualization were updated to the IK solution.';      %added to address change after completion
             outArea.Value = txt;
         catch ME
             outArea.Value = {['Error: ' ME.message]};
@@ -690,8 +688,6 @@ function robotics_toolbox_gui()
             txt{end+1,1} = 'qdot command:';
             txt = [txt; vectorToText(qdot_cmd)];
             txt{end+1,1} = ' ';
-            txt{end+1,1} = 'qdot field was updated to the IK velocity solution.';     %Added to address updated value
-            txt{end+1,1} = ' ';
             txt{end+1,1} = sprintf('rank(J) = %d', info.rank);
             txt{end+1,1} = sprintf('cond approx = %.6g', info.condApprox);
             txt{end+1,1} = ' ';
@@ -705,13 +701,6 @@ function robotics_toolbox_gui()
 
     function onDynamics()
     try
-
-        %disable buttons while running
-        setButtonsEnabled('off');
-
-        outArea.Value = {'Running dynamics. Please wait...'};
-        drawnow;
-
         robot = ensureRobot();
         q = parseVector(qField, robot.n, 'q');
         qdot = parseVector(qdotField, robot.n, 'qdot');
@@ -785,23 +774,11 @@ function robotics_toolbox_gui()
         txt{end+1,1} = 'qdd = B(q)^(-1) [tau - C(q,qdot)qdot - g(q)]';
         txt = [txt; vectorToText(qdd_fd)];
 
-        % Dynamics simulation over time
-
-        Tsim = simTimeField.Value;
-        t = linspace(0, Tsim, 501);
-        dt = t(2) - t(1);
-
-        dynamicsPlotting(robot, q, qdot, tauApplied, t, dt);
-
         outArea.Value = txt;
 
     catch ME
         outArea.Value = {['Error: ' ME.message]};
     end
-
-    %enable buttons after finished
-    setButtonsEnabled('on');
-
     end
 end
 
@@ -841,13 +818,6 @@ end
 
 function val = defaultCOMText(n)
     val = cell(n,1);
-
-    %case of 1 joint
-    if n == 1
-        val{1} = '[0.1 0 0]';
-        return;
-    end
-
     for i = 1:n
         if i == 1
             val{i} = '[0.1 0 0;';
@@ -861,13 +831,6 @@ end
 
 function val = defaultInertiaText(n)
     val = cell(n,1);
-
-    %case of one joint
-     if n == 1
-        val{1} = '[0.01 0.01 0.01 0 0 0]';
-        return;
-     end
-
     for i = 1:n
         if i == 1
             val{i} = '[0.01 0.01 0.01 0 0 0;';
