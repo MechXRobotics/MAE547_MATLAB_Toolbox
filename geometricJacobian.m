@@ -26,5 +26,3 @@ function J = geometricJacobian(robot, q)
 
     J = [Jv; Jw];
 end
-
-% GEOMETRICJACOBIAN Computes 6xn geometric Jacobian in base frame.

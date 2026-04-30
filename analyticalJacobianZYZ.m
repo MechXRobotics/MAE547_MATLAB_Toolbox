@@ -1,20 +1,4 @@
 function [JA, xe, phi, TA, Tphi] = analyticalJacobianZYZ(robot, q)
-% ANALYTICALJACOBIANZYZ
-% Compute textbook analytical Jacobian J_A for operational variables
-% x_e = [p_e; phi_e], where phi_e are ZYZ Euler angles.
-%
-% Based on:
-%   xdot_e = J_A(q) qdot
-%   J = T_A(phi) J_A
-% hence
-%   J_A = T_A(phi) \ J
-%
-% Outputs:
-%   JA   : 6xn analytical Jacobian
-%   xe   : 6x1 operational variable [p; phi]
-%   phi  : 3x1 ZYZ Euler angles
-%   TA   : 6x6 transformation matrix
-%   Tphi : 3x3 orientation-rate mapping matrix
 
     q = q(:);
     if numel(q) ~= robot.n

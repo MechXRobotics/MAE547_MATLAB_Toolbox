@@ -1,17 +1,4 @@
 function [qdot, J, info] = inverseVelocityKinematics(robot, q, ve_des, method, damping)
-% INVERSEVELOCITYKINEMATICS Inverse differential kinematics.
-%
-% Inputs:
-%   robot   : robot struct
-%   q       : nx1 joint configuration
-%   ve_des  : 6x1 desired end-effector twist [v; omega]
-%   method  : 'pinv', 'dls', or 'transpose'
-%   damping : damping factor for DLS, e.g. 1e-2
-%
-% Outputs:
-%   qdot    : nx1 joint velocity command
-%   J       : 6xn Jacobian
-%   info    : struct with conditioning data
 
     if nargin < 4 || isempty(method)
         method = 'pinv';

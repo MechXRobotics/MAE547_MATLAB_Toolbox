@@ -1,8 +1,4 @@
 function [qdd, B, C, gq] = forwardDynamics(robot, q, qdot, tau)
-% FORWARDDYNAMICS Joint accelerations from applied torques.
-%
-% qdd = B(q) \ (tau - C(q,qdot) qdot - g(q))
-
     q = q(:);
     qdot = qdot(:);
     tau = tau(:);

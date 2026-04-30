@@ -1,9 +1,4 @@
 function phi = rotationMatrixToZYZ(R)
-% ROTATIONMATRIXTOZYZ
-% Extract ZYZ Euler angles [phi; theta; psi] from rotation matrix R.
-%
-% Textbook-consistent with Sect. 2.4.1 / Eq. (2.19), choosing:
-% theta in [0, pi].
 
     validateattributes(R, {'numeric'}, {'size',[3 3]});
 

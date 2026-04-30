@@ -1,13 +1,4 @@
 function B = massMatrix(robot, q)
-% MASSMATRIX Joint-space inertia matrix B(q).
-%
-% Uses:
-%   B(q) = sum_i [ m_i Jv_i' Jv_i + Jw_i' R_i I_i R_i' Jw_i ]
-%
-% Assumes inertia rows are stored as:
-%   [Ixx Iyy Izz Ixy Ixz Iyz]
-% in the link-local frame.
-
     q = q(:);
     n = robot.n;
 

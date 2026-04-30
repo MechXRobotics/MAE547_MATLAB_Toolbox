@@ -1,14 +1,16 @@
-function [q_sol, success, history] = inverseKinematicsAnalytical(robot, xd, q0, opts)
+function [q_sol, success, history, ikInfo] = inverseKinematicsAnalytical(robot, xd, q0, opts)
 % INVERSEKINEMATICSANALYTICAL
-% Textbook-style inverse kinematics using analytical Jacobian and
-% operational-space error e = x_d - x_e with ZYZ Euler angles.
+% Iterative full-pose inverse kinematics using the analytical Jacobian.
 %
-% xd   = [p_d; phi_d]  (6x1), with phi_d = [varphi; theta; psi]
+% Inputs:
+%   xd = [p_d; phi_d] where phi_d is in ZYZ Euler angles
 %
-% Supported methods:
-%   'inverse' : qdot = J_A^{-1}(xdot_d + K e)
-%   'pinv'    : qdot = pinv(J_A)(xdot_d + K e)
-%   'dls'     : qdot = J_A' (J_A J_A' + lambda^2 I)^(-1) (xdot_d + K e)
+% Outputs:
+%   q_sol   : solution joint vector
+%   success : convergence flag
+%   history : iteration history
+%   ikInfo  : symbolic forward-kinematics information used as the underlying
+%             pose model for the IK computation
 
     if nargin < 4
         opts = struct();
@@ -36,8 +38,16 @@ function [q_sol, success, history] = inverseKinematicsAnalytical(robot, xd, q0, 
     history.q = zeros(robot.n, opts.maxIter + 1);
     history.e = zeros(6, opts.maxIter + 1);
     history.errNorm = zeros(opts.maxIter + 1, 1);
+    history.xe = zeros(6, opts.maxIter + 1);
 
     success = false;
+
+    % Symbolic forward kinematics used as the underlying model.
+    ikInfo = struct();
+    ikInfo.model_type = 'full_pose_analytical_IK';
+    ikInfo.symbolic_fk = symbolicFkineDH(robot);
+    ikInfo.target_xd = xd;
+    ikInfo.method = opts.method;
 
     for k = 1:opts.maxIter
         [JA, xe] = analyticalJacobianZYZ(robot, q);
@@ -57,7 +67,7 @@ function [q_sol, success, history] = inverseKinematicsAnalytical(robot, xd, q0, 
 
             case 'dls'
                 lambda = opts.lambda;
-                qdot = JA.' * ((JA*JA.' + lambda^2*eye(size(JA,1))) \ vref);
+                qdot = JA.' * ((JA * JA.' + lambda^2 * eye(size(JA,1))) \ vref);
 
             otherwise
                 error('Unknown method.');
@@ -65,7 +75,7 @@ function [q_sol, success, history] = inverseKinematicsAnalytical(robot, xd, q0, 
 
         q = q + opts.dt * qdot;
 
-        if opts.useLimits && isfield(robot, 'qlim')
+        if opts.useLimits && isfield(robot, 'qlim') && ~isempty(robot.qlim)
             for i = 1:robot.n
                 q(i) = min(max(q(i), robot.qlim(i,1)), robot.qlim(i,2));
             end
@@ -74,13 +84,19 @@ function [q_sol, success, history] = inverseKinematicsAnalytical(robot, xd, q0, 
         history.q(:,k) = q;
         history.e(:,k) = e;
         history.errNorm(k) = norm(e);
+        history.xe(:,k) = xe;
 
         if norm(e) < opts.tol
             success = true;
             history.q = history.q(:,1:k);
             history.e = history.e(:,1:k);
             history.errNorm = history.errNorm(1:k);
+            history.xe = history.xe(:,1:k);
             q_sol = q;
+
+            ikInfo.q_solution = q_sol;
+            ikInfo.success = success;
+            ikInfo.final_error = history.errNorm(end);
             return;
         end
     end
@@ -88,5 +104,10 @@ function [q_sol, success, history] = inverseKinematicsAnalytical(robot, xd, q0, 
     history.q = history.q(:,1:opts.maxIter);
     history.e = history.e(:,1:opts.maxIter);
     history.errNorm = history.errNorm(1:opts.maxIter);
+    history.xe = history.xe(:,1:opts.maxIter);
+
     q_sol = q;
+    ikInfo.q_solution = q_sol;
+    ikInfo.success = success;
+    ikInfo.final_error = history.errNorm(end);
 end

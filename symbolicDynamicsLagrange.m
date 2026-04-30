@@ -1,23 +1,4 @@
 function dyn = symbolicDynamicsLagrange(robot)
-% SYMBOLICDYNAMICSLAGRANGE
-% Symbolic dynamics via Lagrange formulation for the reduced textbook model
-%
-%   B(q) qdd + C(q,qdot) qdot + g(q) = tau
-%
-% Assumptions relative to the full textbook model:
-%   Fv = 0, Fs = 0, he = 0
-%
-% Requires:
-%   Symbolic Math Toolbox
-%
-% Output struct fields:
-%   q, qd, qdd  : symbolic joint variables
-%   B           : symbolic inertia matrix
-%   C           : symbolic Coriolis matrix
-%   g           : symbolic gravity vector
-%   tau         : symbolic generalized force vector
-%   eqns        : symbolic equations tau_i == ...
-%   labels      : labels for each generalized force
 
     if ~license('test', 'Symbolic_Toolbox')
         error('Symbolic Math Toolbox is required for symbolic equations of motion.');

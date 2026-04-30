@@ -1,66 +1,36 @@
 function robotics_toolbox_gui()
-% ROBOTICS_TOOLBOX_GUI
-% Textbook-ordered GUI:
-%   Build Robot
-%   1) Forward Kinematics
-%   1a) Animate Home -> q
-%   2) Inverse Kinematics
-%   3) Differential Kinematics
-%   4) Inverse Velocity Kinematics
-%   5) Dynamics
-%
-% Notes:
-%   - Standard DH only
-%   - Analytical Jacobian is printed under Differential Kinematics
-%   - Dynamics prints symbolic equations of motion and numerical evaluation
-%
-% Required companion files:
-%   parseRobotFromUI.m
-%   fkineDH.m
-%   geometricJacobian.m
-%   analyticalJacobianZYZ.m
-%   inverseKinematicsAnalytical.m
-%   inverseKinematicsNumerical.m
-%   velocityKinematics.m
-%   inverseVelocityKinematics.m
-%   plotRobot.m
-%   symbolicDynamicsLagrange.m
-
-    fig = uifigure('Name', 'MATLAB Robotics Toolbox - Textbook Order', ...
-        'Position', [60 40 1780 980]);
+    fig = uifigure('Name', 'MATLAB Robotics Toolbox', 'Position', [60 40 1780 980]);
 
     gl = uigridlayout(fig, [1 2]);
     gl.ColumnWidth = {590, '1x'};
 
-    % ---------------- Left panel ----------------
     leftPanel = uipanel(gl, 'Title', 'Robot Definition and Inputs');
 
     leftGrid = uigridlayout(leftPanel, [25 2]);
     leftGrid.ColumnWidth = {215, '1x'};
     leftGrid.RowHeight = { ...
-        24, ...   % n
-        24, ...   % units
-        24, ...   % gravity
-        32, ...   % example button
-        190, ...  % DH table
-        24, ...   % masses
-        24, ...   % center label
-        85, ...   % center textarea
-        24, ...   % inertia label
-        85, ...   % inertia textarea
-        24, ...   % q
-        24, ...   % qdot
-        24, ...   % qdd
-        24, ...   % tau
-        24, ...   % pd
-        24, ...   % phi_d
-        28, ...   % ve_d
-        36, 36, 36, 36, 36, 36, 36, ... % buttons
+        24, ...
+        24, ...
+        24, ...
+        32, ...
+        190, ...
+        24, ...
+        24, ...
+        85, ...
+        24, ...
+        85, ...
+        24, ...
+        24, ...
+        24, ...
+        24, ...
+        24, ...
+        24, ...
+        28, ...
+        36, 36, 36, 36, 36, 36, 36, ...
         '1x'};
     leftGrid.RowSpacing = 6;
     leftGrid.Padding = [8 8 8 8];
 
-    % Robot definition
     uilabel(leftGrid, 'Text', 'Number of joints n:');
     nField = uieditfield(leftGrid, 'numeric', 'Value', 3, ...
         'Limits', [1 12], 'RoundFractionalValues', true);
@@ -106,7 +76,6 @@ function robotics_toolbox_gui()
     inertiaField.Layout.Column = [1 2];
     inertiaField.FontName = 'Courier New';
 
-    % State / command inputs
     uilabel(leftGrid, 'Text', 'q:');
     qField = uieditfield(leftGrid, 'text', 'Value', '[0.4 0.5 -0.3]');
 
@@ -128,7 +97,6 @@ function robotics_toolbox_gui()
     uilabel(leftGrid, 'Text', 'Desired twist ve_d [vx vy vz wx wy wz]:');
     veField = uieditfield(leftGrid, 'text', 'Value', '[0.05 0 0 0 0 0]');
 
-    % Buttons
     buildBtn   = uibutton(leftGrid, 'push', 'Text', 'Build Robot');
     fkBtn      = uibutton(leftGrid, 'push', 'Text', '1. Forward Kinematics');
     animBtn    = uibutton(leftGrid, 'push', 'Text', '1a. Animate Home -> q');
@@ -145,7 +113,6 @@ function robotics_toolbox_gui()
     invVelBtn.Layout.Column  = 2;
     dynBtn.Layout.Column     = 1;
 
-    % ---------------- Right panel ----------------
     rightPanel = uipanel(gl, 'Title', 'Visualization and Output');
     rightGrid = uigridlayout(rightPanel, [2 1]);
     rightGrid.RowHeight = {'2x','1x'};
@@ -163,7 +130,6 @@ function robotics_toolbox_gui()
     outArea.FontName = 'Courier New';
     outArea.Value = {'Ready. Enter inputs and click Build Robot, or load the example.'};
 
-    % App state
     app.robot = [];
     app.ax = ax;
     app.outArea = outArea;
@@ -182,7 +148,6 @@ function robotics_toolbox_gui()
     app.phiField = phiField;
     app.veField = veField;
 
-    % Callbacks
     nField.ValueChangedFcn = @(src,evt) onNChanged();
     buildBtn.ButtonPushedFcn = @(src,evt) onBuildRobot();
     fkBtn.ButtonPushedFcn = @(src,evt) onForwardKinematics();
@@ -194,8 +159,6 @@ function robotics_toolbox_gui()
     exampleBtn.ButtonPushedFcn = @(src,evt) onLoadExample();
 
     clearPlot();
-
-    % ================= Nested functions =================
 
     function clearPlot()
         cla(ax);
@@ -328,8 +291,9 @@ function robotics_toolbox_gui()
             robot = ensureRobot();
             q = parseVector(qField, robot.n, 'q');
 
-            [T_all, p_all] = fkineDH(robot, q);
+            [T_all, p_all, fkInfo] = fkineDH(robot, q);
             T_ee = T_all(:,:,end);
+            p_ee = T_ee(1:3,4);
 
             cla(ax);
             plotRobot(ax, p_all, T_all);
@@ -338,11 +302,46 @@ function robotics_toolbox_gui()
             txt = {};
             txt{end+1,1} = '1. FORWARD KINEMATICS';
             txt{end+1,1} = ' ';
-            txt{end+1,1} = 'End-effector transform T:';
+
+            if isPlanar3R(robot)
+                a1 = robot.a(1);
+                a2 = robot.a(2);
+                a3 = robot.a(3);
+
+                txt{end+1,1} = 'Compact FK for 3R planar arm:';
+                txt{end+1,1} = sprintf('p_x = %.4g*cos(q1) + %.4g*cos(q1+q2) + %.4g*cos(q1+q2+q3)', a1, a2, a3);
+                txt{end+1,1} = sprintf('p_y = %.4g*sin(q1) + %.4g*sin(q1+q2) + %.4g*sin(q1+q2+q3)', a1, a2, a3);
+                txt{end+1,1} = 'phi = q1 + q2 + q3';
+                txt{end+1,1} = ' ';
+            end
+
+            if isfield(fkInfo, 'available') && fkInfo.available
+                txt{end+1,1} = 'Symbolic forward-kinematics expression T(q):';
+                txt = [txt; symbolicMatrixToText(fkInfo.T_ee, 4)];
+                txt{end+1,1} = ' ';
+
+                txt{end+1,1} = 'Symbolic end-effector position p(q):';
+                txt = [txt; symbolicVectorToText(fkInfo.p_ee, 4)];
+                txt{end+1,1} = ' ';
+
+                txt{end+1,1} = 'Substitute q =';
+                txt = [txt; vectorToText(q)];
+                txt{end+1,1} = ' ';
+            else
+                txt{end+1,1} = 'Symbolic forward-kinematics expression unavailable.';
+                if isfield(fkInfo, 'note') && ~isempty(fkInfo.note)
+                    txt{end+1,1} = fkInfo.note;
+                end
+                txt{end+1,1} = ' ';
+            end
+
+            txt{end+1,1} = 'Substituted numerical transform T(q):';
             txt = [txt; matrixToText(T_ee)];
             txt{end+1,1} = ' ';
-            txt{end+1,1} = 'Position p_e:';
-            txt = [txt; vectorToText(T_ee(1:3,4))];
+
+            txt{end+1,1} = 'Final answer: end-effector position p_e';
+            txt = [txt; vectorToText(p_ee)];
+
             outArea.Value = txt;
         catch ME
             outArea.Value = {['Error: ' ME.message]};
@@ -390,6 +389,10 @@ function robotics_toolbox_gui()
             robot = ensureRobot();
             q0 = parseVector(qField, robot.n, 'q');
 
+            txt = {};
+            txt{end+1,1} = '2. INVERSE KINEMATICS';
+            txt{end+1,1} = ' ';
+
             if robot.n < 6
                 pd = parse3(pdField, 'pd');
 
@@ -400,7 +403,32 @@ function robotics_toolbox_gui()
                 opts.damping = 1e-2;
                 opts.useLimits = true;
 
-                [q_sol, success, history] = inverseKinematicsNumerical(robot, pd, q0, opts);
+                [q_sol, success, history, ikInfo] = inverseKinematicsNumerical(robot, pd, q0, opts);
+
+                if isPlanar3R(robot)
+                    a1 = robot.a(1);
+                    a2 = robot.a(2);
+                    a3 = robot.a(3);
+
+                    txt{end+1,1} = 'Compact FK position model used in IK:';
+                    txt{end+1,1} = sprintf('p_x(q) = %.4g*cos(q1) + %.4g*cos(q1+q2) + %.4g*cos(q1+q2+q3)', a1, a2, a3);
+                    txt{end+1,1} = sprintf('p_y(q) = %.4g*sin(q1) + %.4g*sin(q1+q2) + %.4g*sin(q1+q2+q3)', a1, a2, a3);
+                    txt{end+1,1} = ' ';
+                end
+
+                txt{end+1,1} = 'Symbolic forward-kinematics position model p(q):';
+                if isfield(ikInfo, 'symbolic_fk') && isfield(ikInfo.symbolic_fk, 'available') && ikInfo.symbolic_fk.available
+                    txt = [txt; symbolicVectorToText(ikInfo.symbolic_fk.p_ee, 4)];
+                else
+                    txt{end+1,1} = 'Unavailable.';
+                end
+                txt{end+1,1} = ' ';
+
+                txt{end+1,1} = 'Target position p_d:';
+                txt = [txt; vectorToText(pd)];
+                txt{end+1,1} = ' ';
+
+                txt{end+1,1} = 'Substitute q = q_sol into p(q):';
             else
                 pd = parse3(pdField, 'pd');
                 phi_d = parse3(phiField, 'phi_d');
@@ -415,28 +443,58 @@ function robotics_toolbox_gui()
                 opts.xdot_d = zeros(6,1);
                 opts.useLimits = true;
 
-                [q_sol, success, history] = inverseKinematicsAnalytical(robot, xd, q0, opts);
+                [q_sol, success, history, ikInfo] = inverseKinematicsAnalytical(robot, xd, q0, opts);
+
+                txt{end+1,1} = 'Symbolic forward-kinematics transform T(q):';
+                if isfield(ikInfo, 'symbolic_fk') && isfield(ikInfo.symbolic_fk, 'available') && ikInfo.symbolic_fk.available
+                    txt = [txt; symbolicMatrixToText(ikInfo.symbolic_fk.T_ee, 4)];
+                    txt{end+1,1} = ' ';
+                    txt{end+1,1} = 'Symbolic forward-kinematics position p(q):';
+                    txt = [txt; symbolicVectorToText(ikInfo.symbolic_fk.p_ee, 4)];
+                else
+                    txt{end+1,1} = 'Unavailable.';
+                end
+                txt{end+1,1} = ' ';
+
+                txt{end+1,1} = 'Target x_d = [p_d; phi_d]:';
+                txt = [txt; vectorToText(xd)];
+                txt{end+1,1} = ' ';
+
+                txt{end+1,1} = 'Substitute q = q_sol into T(q) and p(q):';
             end
 
             qField.Value = mat2str(q_sol.', 6);
 
             [T_all, p_all] = fkineDH(robot, q_sol);
+            T_sol = T_all(:,:,end);
+            p_sol = T_sol(1:3,4);
+
             cla(ax);
             plotRobot(ax, p_all, T_all);
             title(ax, 'Robot Visualization');
 
-            txt = {};
-            txt{end+1,1} = '2. INVERSE KINEMATICS';
+            txt = [txt; vectorToText(q_sol)];
+            txt{end+1,1} = ' ';
+
+            txt{end+1,1} = 'Substituted numerical transform T(q_sol):';
+            txt = [txt; matrixToText(T_sol)];
+            txt{end+1,1} = ' ';
+
+            txt{end+1,1} = 'Substituted numerical position p(q_sol):';
+            txt = [txt; vectorToText(p_sol)];
+            txt{end+1,1} = ' ';
+
             if success
-                txt{end+1,1} = 'success = 1 (converged)';
+                txt{end+1,1} = 'Final answer: success = 1 (converged)';
             else
-                txt{end+1,1} = 'success = 0 (did not converge within max iterations / tolerance)';
+                txt{end+1,1} = 'Final answer: success = 0 (did not converge within max iterations / tolerance)';
             end
             txt{end+1,1} = ' ';
-            txt{end+1,1} = 'q solution:';
+            txt{end+1,1} = 'Final answer: q solution';
             txt = [txt; vectorToText(q_sol)];
             txt{end+1,1} = ' ';
             txt{end+1,1} = sprintf('Final error norm = %.6e', history.errNorm(end));
+
             outArea.Value = txt;
         catch ME
             outArea.Value = {['Error: ' ME.message]};
@@ -517,88 +575,82 @@ function robotics_toolbox_gui()
     end
 
     function onDynamics()
-    try
-        robot = ensureRobot();
-        q = parseVector(qField, robot.n, 'q');
-        qdot = parseVector(qdotField, robot.n, 'qdot');
-        qdd = parseVector(qddField, robot.n, 'qdd');
-        tauApplied = parseVector(tauField, robot.n, 'tau');
+        try
+            robot = ensureRobot();
+            q = parseVector(qField, robot.n, 'q');
+            qdot = parseVector(qdotField, robot.n, 'qdot');
+            qdd = parseVector(qddField, robot.n, 'qdd');
+            tauApplied = parseVector(tauField, robot.n, 'tau');
 
-        % Symbolic dynamics from textbook reduced model
-        dyn = symbolicDynamicsLagrange(robot);
+            dyn = symbolicDynamicsLagrange(robot);
 
-        % Numerical evaluation from the same symbolic model
-        subsVars = [dyn.q; dyn.qd; dyn.qdd];
-        subsVals = [q; qdot; qdd];
+            subsVars = [dyn.q; dyn.qd; dyn.qdd];
+            subsVals = [q; qdot; qdd];
 
-        B_num = double(subs(dyn.B, subsVars, subsVals));
-        C_num = double(subs(dyn.C, subsVars, subsVals));
-        g_num = double(subs(dyn.g, subsVars, subsVals));
-        tau_num = double(subs(dyn.tau, subsVars, subsVals));
+            B_num = double(subs(dyn.B, subsVars, subsVals));
+            C_num = double(subs(dyn.C, subsVars, subsVals));
+            g_num = double(subs(dyn.g, subsVars, subsVals));
+            tau_num = double(subs(dyn.tau, subsVars, subsVals));
 
-        % Forward dynamics from the same model
-        qdd_fd = B_num \ (tauApplied - C_num*qdot - g_num);
+            qdd_fd = B_num \ (tauApplied - C_num*qdot - g_num);
 
-        txt = {};
-        txt{end+1,1} = '5. DYNAMICS';
-        txt{end+1,1} = ' ';
-        txt{end+1,1} = 'Symbolic textbook model (reduced case):';
-        txt{end+1,1} = 'B(q) qdd + C(q,qdot) qdot + g(q) = tau';
-        txt{end+1,1} = ' ';
-        txt{end+1,1} = '----------------------------------------';
-        txt{end+1,1} = ' ';
-
-        txt{end+1,1} = 'Symbolic joint equations of motion:';
-        txt{end+1,1} = ' ';
-
-        for i = 1:robot.n
-            eqStr = char(vpa(dyn.eqns(i), 6));
-            fullEq = sprintf('%s = %s', dyn.labels{i}, eqStr);
-
-            wrappedEq = wrapEquationText(fullEq, 90);
-            txt = [txt; wrappedEq]; %#ok<AGROW>
+            txt = {};
+            txt{end+1,1} = '5. DYNAMICS';
             txt{end+1,1} = ' ';
+            txt{end+1,1} = 'Symbolic model (reduced case):';
+            txt{end+1,1} = 'B(q) qdd + C(q,qdot) qdot + g(q) = tau';
+            txt{end+1,1} = ' ';
+            txt{end+1,1} = '----------------------------------------';
+            txt{end+1,1} = ' ';
+
+            txt{end+1,1} = 'Symbolic joint equations of motion:';
+            txt{end+1,1} = ' ';
+
+            for i = 1:robot.n
+                eqStr = char(vpa(dyn.eqns(i), 6));
+                fullEq = sprintf('%s = %s', dyn.labels{i}, eqStr);
+                wrappedEq = wrapEquationText(fullEq, 90);
+                txt = [txt; wrappedEq]; %#ok<AGROW>
+                txt{end+1,1} = ' ';
+            end
+
+            txt{end+1,1} = '----------------------------------------';
+            txt{end+1,1} = ' ';
+            txt{end+1,1} = 'Numerical evaluation at current [q, qdot, qdd]:';
+            txt{end+1,1} = 'tau(q,qdot,qdd) =';
+            txt = [txt; vectorToText(tau_num)];
+
+            txt{end+1,1} = ' ';
+            txt{end+1,1} = '----------------------------------------';
+            txt{end+1,1} = ' ';
+            txt{end+1,1} = 'Mass matrix B(q):';
+            txt = [txt; matrixToText(B_num)];
+
+            txt{end+1,1} = ' ';
+            txt{end+1,1} = '----------------------------------------';
+            txt{end+1,1} = ' ';
+            txt{end+1,1} = 'Coriolis matrix C(q,qdot):';
+            txt = [txt; matrixToText(C_num)];
+
+            txt{end+1,1} = ' ';
+            txt{end+1,1} = '----------------------------------------';
+            txt{end+1,1} = ' ';
+            txt{end+1,1} = 'Gravity vector g(q):';
+            txt = [txt; vectorToText(g_num)];
+
+            txt{end+1,1} = ' ';
+            txt{end+1,1} = '----------------------------------------';
+            txt{end+1,1} = ' ';
+            txt{end+1,1} = 'Forward dynamics from the same model, using applied tau:';
+            txt{end+1,1} = 'qdd = B(q)^(-1) [tau - C(q,qdot)qdot - g(q)]';
+            txt = [txt; vectorToText(qdd_fd)];
+
+            outArea.Value = txt;
+        catch ME
+            outArea.Value = {['Error: ' ME.message]};
         end
-
-        txt{end+1,1} = '----------------------------------------';
-        txt{end+1,1} = ' ';
-        txt{end+1,1} = 'Numerical evaluation at current [q, qdot, qdd]:';
-        txt{end+1,1} = 'tau(q,qdot,qdd) =';
-        txt = [txt; vectorToText(tau_num)];
-
-        txt{end+1,1} = ' ';
-        txt{end+1,1} = '----------------------------------------';
-        txt{end+1,1} = ' ';
-        txt{end+1,1} = 'Mass matrix B(q):';
-        txt = [txt; matrixToText(B_num)];
-
-        txt{end+1,1} = ' ';
-        txt{end+1,1} = '----------------------------------------';
-        txt{end+1,1} = ' ';
-        txt{end+1,1} = 'Coriolis matrix C(q,qdot):';
-        txt = [txt; matrixToText(C_num)];
-
-        txt{end+1,1} = ' ';
-        txt{end+1,1} = '----------------------------------------';
-        txt{end+1,1} = ' ';
-        txt{end+1,1} = 'Gravity vector g(q):';
-        txt = [txt; vectorToText(g_num)];
-
-        txt{end+1,1} = ' ';
-        txt{end+1,1} = '----------------------------------------';
-        txt{end+1,1} = ' ';
-        txt{end+1,1} = 'Forward dynamics from the same model, using applied tau:';
-        txt{end+1,1} = 'qdd = B(q)^(-1) [tau - C(q,qdot)qdot - g(q)]';
-        txt = [txt; vectorToText(qdd_fd)];
-
-        outArea.Value = txt;
-
-    catch ME
-        outArea.Value = {['Error: ' ME.message]};
-    end
     end
 end
-
 
 function data = defaultDHTable(n)
     data = cell(n, 8);
@@ -660,9 +712,6 @@ function val = defaultInertiaText(n)
 end
 
 function wrapped = wrapEquationText(str, maxLen)
-% WRAPEQUATIONTEXT
-% Break a long equation string into multiple shorter lines.
-
     if nargin < 2
         maxLen = 90;
     end
@@ -673,7 +722,7 @@ function wrapped = wrapEquationText(str, maxLen)
     while length(str) > maxLen
         breakIdx = [];
 
-        searchStart = max(2, floor(0.6*maxLen));
+        searchStart = max(2, floor(0.6 * maxLen));
         searchEnd = min(length(str), maxLen);
 
         for k = searchEnd:-1:searchStart
@@ -696,11 +745,73 @@ function wrapped = wrapEquationText(str, maxLen)
             breakIdx = maxLen;
         end
 
-        wrapped{end+1,1} = strtrim(str(1:breakIdx));
+        wrapped{end+1,1} = strtrim(str(1:breakIdx)); %#ok<AGROW>
         str = strtrim(str(breakIdx+1:end));
     end
 
     if ~isempty(str)
         wrapped{end+1,1} = strtrim(str);
     end
+end
+
+function txt = symbolicMatrixToText(M, digits)
+    if nargin < 2
+        digits = 4;
+    end
+
+    if ~isa(M, 'sym')
+        txt = matrixToText(double(M));
+        return;
+    end
+
+    M = cleanSymbolicExpression(M);
+    M = vpa(M, digits);
+    txt = cell(size(M,1), 1);
+
+    for i = 1:size(M,1)
+        rowParts = cell(1, size(M,2));
+        for j = 1:size(M,2)
+            rowParts{j} = char(M(i,j));
+        end
+        txt{i,1} = strjoin(rowParts, '   ');
+    end
+end
+
+function txt = symbolicVectorToText(v, digits)
+    if nargin < 2
+        digits = 4;
+    end
+
+    v = v(:);
+
+    if ~isa(v, 'sym')
+        txt = vectorToText(double(v));
+        return;
+    end
+
+    v = cleanSymbolicExpression(v);
+    v = vpa(v, digits);
+    txt = cell(numel(v), 1);
+
+    for i = 1:numel(v)
+        txt{i,1} = char(v(i));
+    end
+end
+
+function exprOut = cleanSymbolicExpression(exprIn)
+    if ~isa(exprIn, 'sym')
+        exprOut = exprIn;
+        return;
+    end
+
+    exprOut = simplify(exprIn, 'Steps', 100);
+    exprOut = rewrite(exprOut, 'sincos');
+    exprOut = simplify(exprOut, 'Steps', 100);
+end
+
+function tf = isPlanar3R(robot)
+    tf = robot.n == 3 && ...
+         all(robot.type == "R") && ...
+         all(abs(robot.alpha) < 1e-12) && ...
+         all(abs(robot.d) < 1e-12);
 end

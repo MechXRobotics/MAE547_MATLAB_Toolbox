@@ -1,16 +1,4 @@
 function [ve, pdot, omega] = velocityKinematics(robot, q, qdot)
-% VELOCITYKINEMATICS Forward differential kinematics.
-%
-% Inputs:
-%   robot : robot struct
-%   q     : nx1 or 1xn joint configuration
-%   qdot  : nx1 or 1xn joint velocity
-%
-% Outputs:
-%   ve    : 6x1 end-effector twist [linear; angular]
-%   pdot  : 3x1 linear velocity
-%   omega : 3x1 angular velocity
-
     q = q(:);
     qdot = qdot(:);
 

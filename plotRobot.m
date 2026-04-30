@@ -33,5 +33,3 @@ function plotRobot(ax, p_all, T_all)
     ylabel(ax, 'Y');
     zlabel(ax, 'Z');
 end
-
-% PLOTROBOT Basic 3D plot of serial manipulator.

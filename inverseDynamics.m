@@ -1,7 +1,4 @@
 function [tau, B, C, gq] = inverseDynamics(robot, q, qdot, qdd)
-% INVERSEDYNAMICS Joint torques from state and acceleration.
-%
-% tau = B(q) qdd + C(q,qdot) qdot + g(q)
 
     q = q(:);
     qdot = qdot(:);

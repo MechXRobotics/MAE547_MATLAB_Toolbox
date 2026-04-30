@@ -1,11 +1,4 @@
 function C = coriolisMatrix(robot, q, qdot)
-% CORIOLISMATRIX Coriolis/centrifugal matrix C(q,qdot).
-%
-% Uses Christoffel symbols:
-%   c_ijk = 0.5 * ( dB_ij/dq_k + dB_ik/dq_j - dB_jk/dq_i )
-% and
-%   C_ij = sum_k c_ijk qdot_k
-
     q = q(:);
     qdot = qdot(:);
     n = robot.n;
@@ -15,7 +8,7 @@ function C = coriolisMatrix(robot, q, qdot)
     end
 
     h = 1e-6;
-    dB = zeros(n,n,n); % dB(:,:,k) = dB/dq_k
+    dB = zeros(n,n,n); 
 
     for k = 1:n
         dq = zeros(n,1);

@@ -1,9 +1,4 @@
 function gq = gravityVector(robot, q)
-% GRAVITYVECTOR Gravity generalized force vector g(q).
-%
-% Computed from potential energy:
-%   U(q) = - sum_i m_i * g' * p_com_i
-% and g(q) = dU/dq numerically.
 
     q = q(:);
     n = robot.n;

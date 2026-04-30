@@ -1,22 +1,14 @@
-function [q_sol, success, history] = inverseKinematicsNumerical(robot, pd, q0, opts)
-% INVERSEKINEMATICSNUMERICAL Numerical position-only inverse kinematics.
-%
-% Inputs:
-%   robot : robot struct
-%   pd    : 3x1 desired end-effector position
-%   q0    : nx1 initial guess
-%   opts  : struct with optional fields:
-%           .maxIter   (default 200)
-%           .tol       (default 1e-5)
-%           .alpha     (default 0.5)
-%           .method    (default 'pinv')  % 'pinv' or 'dls'
-%           .damping   (default 1e-2)
-%           .useLimits (default true)
+function [q_sol, success, history, ikInfo] = inverseKinematicsNumerical(robot, pd, q0, opts)
+% INVERSEKINEMATICSNUMERICAL
+% Iterative position-only inverse kinematics using the linear part of the
+% geometric Jacobian.
 %
 % Outputs:
-%   q_sol   : nx1 solution
-%   success : logical
-%   history : struct with iteration history
+%   q_sol   : solution joint vector
+%   success : convergence flag
+%   history : iteration history
+%   ikInfo  : symbolic forward-kinematics information used as the underlying
+%             position model for the IK computation
 
     if nargin < 4
         opts = struct();
@@ -45,6 +37,14 @@ function [q_sol, success, history] = inverseKinematicsNumerical(robot, pd, q0, o
 
     success = false;
 
+    % Symbolic forward kinematics used as the underlying model.
+    ikInfo = struct();
+    ikInfo.model_type = 'position_only_numerical_IK';
+    ikInfo.symbolic_fk = symbolicFkineDH(robot);
+    ikInfo.symbolic_position = ikInfo.symbolic_fk.p_ee;
+    ikInfo.target_pd = pd;
+    ikInfo.method = opts.method;
+
     for k = 1:opts.maxIter
         [T_all, ~] = fkineDH(robot, q);
         T_ee = T_all(:,:,end);
@@ -60,7 +60,7 @@ function [q_sol, success, history] = inverseKinematicsNumerical(robot, pd, q0, o
 
             case 'dls'
                 lambda = opts.damping;
-                dq = opts.alpha * Jp.' * ((Jp*Jp.' + lambda^2*eye(3)) \ e);
+                dq = opts.alpha * Jp.' * ((Jp * Jp.' + lambda^2 * eye(3)) \ e);
 
             otherwise
                 error('Unknown IK method. Use ''pinv'' or ''dls''.');
@@ -84,6 +84,10 @@ function [q_sol, success, history] = inverseKinematicsNumerical(robot, pd, q0, o
             history.errNorm = history.errNorm(1:k);
             history.position = history.position(:,1:k);
             q_sol = q;
+
+            ikInfo.q_solution = q_sol;
+            ikInfo.success = success;
+            ikInfo.final_error = history.errNorm(end);
             return;
         end
     end
@@ -91,5 +95,9 @@ function [q_sol, success, history] = inverseKinematicsNumerical(robot, pd, q0, o
     history.q = history.q(:,1:opts.maxIter);
     history.errNorm = history.errNorm(1:opts.maxIter);
     history.position = history.position(:,1:opts.maxIter);
+
     q_sol = q;
+    ikInfo.q_solution = q_sol;
+    ikInfo.success = success;
+    ikInfo.final_error = history.errNorm(end);
 end

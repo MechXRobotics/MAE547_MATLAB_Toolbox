@@ -1,21 +1,5 @@
 function robot = parseRobotFromUI(app)
-% PARSEROBOTFROMUI
-% Parse GUI data into a validated robot struct.
-%
-% Expected fields in app:
-%   app.dhTable
-%   app.unitsDrop
-%   app.gravField
-%   app.massesField
-%   app.comField
-%   app.inertiaField
-%
-% Output robot fields:
-%   n, type, a, alpha, d, theta, q_home, qlim
-%   gravity, mass, com, inertia
-%   base, tool
 
-    % ---------------- DH table ----------------
     data = app.dhTable.Data;
     n = size(data, 1);
 
